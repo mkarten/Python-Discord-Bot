@@ -2,48 +2,53 @@ import os
 from dotenv import load_dotenv
 import discord
 from discord import app_commands
-from discord import ui
-import random
+import openai
+import jsonpickle
+import json
 
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 
+class message(object):
+    def __init__(self, author, content):
+        self.role = author
+        self.content = content
 
-playerX = 4
-playerY = 9
-maxX = 10
-maxY = 13
-gameMap = [
-    ["🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦"],
-    ["🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦"],
-    ["🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦"],
-    ["🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦"],
-    ["🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦"],
-    ["🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦"],
-    ["🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦"],
-    ["🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦"],
-    ["🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦"],
-    ["🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦"],
-    ["🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦"],
-    ["🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦"],
-    ["🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦"],
-    ["🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦","🟦"],
-]
+class chat(object):
+    def __init__(self):
+        self.tokenCost = 0
+        self.messages = []
+        self.lastMessage = message("", "")
+    
+    def __str__(self):
+        return str(self.messages)
+    
+    def askGpt(self, input : str):
+        self.messages.append(message("user", input))
+        self.lastMessage = self.messages[-1]
+        messageData = []
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[x.__dict__ for x in self.messages]
+        )
+        print(response)
+        tokenUsage = "promt token : " + str(response["usage"]["prompt_tokens"]) + " , completion token : " + str(response["usage"]["completion_tokens"]) + " , total token : " + str(response["usage"]["total_tokens"])
+        print(tokenUsage)
+        msg = response["choices"][0]["message"]
+        self.messages.append(message(msg["role"], msg["content"]))
+        self.lastMessage = self.messages[-1]
+        cost = round(int(response["usage"]["total_tokens"])*(0.002/1000),7)
+        return self.lastMessage.content,cost
 
-def getMap():
-    map = ""
-    for y,row in enumerate(gameMap):
-        for x,item in enumerate(row):
-            if x == playerX and y == playerY:
-                map += "🤡"
-            else:
-                map += item
-        map += "\n"
-    return map
+chats = dict[int,chat]()
 
+def exportChats(chatArray):
+    return jsonpickle.encode(chatArray,unpicklable=False)
 
+def loadChats(jsonChats):
+    return jsonpickle.decode(jsonChats)
 
 @client.event
 async def on_ready():
@@ -58,95 +63,36 @@ async def ping(interaction : discord.Interaction):
 async def echo(interaction : discord.Interaction, message : str):
     await interaction.response.send_message(message)
 
-@tree.command(name="exec",description="Executes a command")
-async def exec(interaction : discord.Interaction, command : str):
-    result = os.popen(command).read()
-    if result == "":
-        result = "Done."
-    await interaction.response.send_message(result)
-
-interface = []
-
-class testView(ui.View):
-    def __init__(self):
-        super().__init__()
-        for row in interface:
-            for button in row:
-                self.add_item(button)
-
-class nonButton (ui.Button):
-    def __init__(self):
-        super().__init__(label="​",style=discord.ButtonStyle.gray, custom_id=str(random.randint(0,10000000)),disabled=True)
-
-    async def callback(self, interaction : discord.Interaction):
-        await interaction.response.edit_message(view=testView(),content=getMap())
-
-class UpButton(ui.Button):
-    def __init__(self):
-        super().__init__(style=discord.ButtonStyle.gray, custom_id="up",emoji="⬆️")
-
-    async def callback(self, interaction : discord.Interaction):
-        if playerY > 0:
-            playerY -= 1
-        await interaction.response.edit_message(view=testView(),content=getMap())
-
-class DownButton(ui.Button):
-    def __init__(self):
-        super().__init__(style=discord.ButtonStyle.gray, custom_id="down",emoji="⬇️")
-
-    async def callback(self, interaction : discord.Interaction):
-        if playerY < maxY:
-            playerY += 1
-        await interaction.response.edit_message(view=testView(),content=getMap())
-
-class LeftButton(ui.Button):
-    def __init__(self):
-        super().__init__(style=discord.ButtonStyle.gray, custom_id="left",emoji="⬅️")
-
-    async def callback(self, interaction : discord.Interaction):
-        if playerX > 0:
-            playerX -= 1
-        await interaction.response.edit_message(view=testView(),content=getMap())
-
-class RightButton(ui.Button):
-    def __init__(self):
-        super().__init__(style=discord.ButtonStyle.gray, custom_id="right",emoji="➡️")
-
-    async def callback(self, interaction : discord.Interaction):
-        if playerX < maxX:
-            playerX += 1
-        await interaction.response.edit_message(view=testView(),content=getMap())
-
-class AButton(ui.Button):
-    def __init__(self):
-        super().__init__(style=discord.ButtonStyle.gray, custom_id="a",emoji="🅰️")
-
-    async def callback(self, interaction : discord.Interaction):
-        print("A")
-        await interaction.response.edit_message(view=testView())
-
-class BButton(ui.Button):
-    def __init__(self):
-        super().__init__(style=discord.ButtonStyle.gray, custom_id="b",emoji="🅱️")
-
-    async def callback(self, interaction : discord.Interaction):
-        print("B")
-        await interaction.response.edit_message(view=testView())
-
-interface = [
-    [nonButton(),UpButton(),nonButton(),nonButton(),nonButton()],
-    [LeftButton(),nonButton(),RightButton(),nonButton(),nonButton()],
-    [nonButton(),DownButton(),nonButton(),nonButton(),nonButton()],
-    [nonButton(),nonButton(),nonButton(),AButton(),BButton()]
-]    
     
 @tree.command(name="clear",description="Clears the channel")
 async def clear(interaction : discord.Interaction):
     await interaction.channel.purge(limit=1000000)
 
-@tree.command(name="ui",description="Shows a UI")
-async def ui(interaction : discord.Interaction):
-    await interaction.response.send_message(getMap(),view=testView())
+@tree.command(name="ask-chat",description="Asks GPT-3 a question")
+async def askGPT(interaction : discord.Interaction, question : str):
+    channelID = interaction.channel.id
+    if channelID not in chats:
+        chats[channelID] = chat()
+    currentChat: chat = chats[channelID]
+    await interaction.response.send_message("waiting for GPT-3 response...")
+    response,cost = currentChat.askGpt(question)
+    msg = await interaction.original_response()
+    await msg.edit(content="you said : " + question + "\nGPT-3 said : " + response+"\n\n"+"it costed "+str(cost)+" $")
+
+@tree.command(name="ask",description="Asks a question to the bot")
+async def ask(interaction : discord.Interaction, question : str):
+    await interaction.response.send_message("waiting for response...")
+    tempchat = chat()
+    response,cost = tempchat.askGpt(question)
+    msg = await interaction.original_response()
+    await msg.edit(content="you ask : " + question + "\n\n" + response+"\n\n"+"it costed "+str(cost)+" $")
+
+
+@tree.command(name="rickroll",description="Rickrolls a user")
+async def rickroll(interaction : discord.Interaction, user : discord.Member):
+    #send a rickroll gif to the user privately
+    await user.send("https://tenor.com/bEWOf.gif")
+    await interaction.response.send_message(f"Rickrolled {user.name}!",ephemeral=True)
 
 
 
@@ -158,6 +104,9 @@ async def greet(interaction : discord.Interaction, user : discord.Member):
 def main():
     load_dotenv()
     token = os.getenv("TOKEN")
+    chatGPTSecret = os.getenv("CHATGPT_SECRET")
+    openai.organization = "org-caQ8goqyO6vSXZQyq8vc4tIL"
+    openai.api_key = chatGPTSecret
     client.run(token)
 
 if __name__ == "__main__":
