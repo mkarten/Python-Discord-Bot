@@ -1,0 +1,107 @@
+  {
+    "question": "Which programming language guide do you want to read?",
+    "options": {
+      "Python": {
+        "question": "Python guide",
+        "options": {
+          "Basics": {
+            "question": "Python basics",
+            "options": {
+              "Syntax": {
+                "question": "Python syntax",
+                "options": {
+                  "Variables": {
+                    "question": "Variables in Python"
+                  },
+                  "Data Types": {
+                    "question": "Data Types in Python",
+                    "options": {
+                      "Strings": {
+                        "question": "Strings in Python"
+                      },
+                      "Numbers": {
+                        "question": "Numbers in Python"
+                      },
+                      "Lists": {
+                        "question": "Lists in Python"
+                      },
+                      "Dictionaries": {
+                        "question": "Dictionaries in Python"
+                      }
+                    }
+                  }
+                }
+              },
+              "Control Flow": {
+                "question": "Python control flow",
+                "options": {
+                  "Conditional Statements": {
+                    "question": "Conditional Statements in Python"
+                  },
+                  "Loops": {
+                    "question": "Loops in Python"
+                  }
+                }
+              },
+              "Functions": {
+                "question": "Functions in Python"
+              }
+            }
+          },
+          "Intermediate": {
+            "question": "Intermediate Python",
+            "options": {
+              "Modules": {
+                "question": "Modules in Python"
+              },
+              "File I/O": {
+                "question": "File Input/Output in Python"
+              },
+              "Exceptions": {
+                "question": "Exceptions in Python"
+              }
+            }
+          },
+          "Advanced": {
+            "question": "Advanced Python",
+            "options": {
+              "Classes": {
+                "question": "Classes in Python"
+              },
+              "Regular Expressions": {
+                "question": "Regular Expressions in Python"
+              },
+              "Concurrency": {
+                "question": "Concurrency in Python"
+              }
+            }
+          }
+        }
+      },
+      "Java": {
+        "question": "Java guide",
+        "options": {
+          "Basics": {
+            "question": "Java basics",
+            "options": {
+              "Syntax": {
+                "question": "Java syntax"
+              },
+              "Variables": {
+                "question": "Variables in Java"
+              },
+              "Data Types": {
+                "question": "Data Types in Java"
+              }
+            }
+          },
+          "Control Flow": {
+            "question": "Java control flow"
+          },
+          "Object-Oriented Programming": {
+            "question": "Object-Oriented Programming in Java"
+          }
+        }
+      }
+    }
+  }
