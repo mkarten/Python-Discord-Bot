@@ -3,45 +3,14 @@ from dotenv import load_dotenv
 import discord
 from discord import app_commands
 from history import History
-import openai
+from Chat import chat, registerApi
 import jsonpickle
-import json
-import threading
 
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 history = History("./history.json")
-
-class message(object):
-    def __init__(self, author, content):
-        self.role = author
-        self.content = content
-
-class chat(object):
-    def __init__(self):
-        self.tokenCost = 0
-        self.messages : list[message] =[]
-        self.lastMessage : message = message("", "")
-    
-    def __str__(self):
-        return str(self.messages)
-    
-    def askGpt(self, input : str):
-        self.messages.append(message("user", input))
-        self.lastMessage = self.messages[-1]
-        messageData = []
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[x.__dict__ for x in self.messages]
-        )
-        tokenUsage = "promt token : " + str(response["usage"]["prompt_tokens"]) + " , completion token : " + str(response["usage"]["completion_tokens"]) + " , total token : " + str(response["usage"]["total_tokens"])
-        msg = response["choices"][0]["message"]
-        self.messages.append(message(msg["role"], msg["content"]))
-        self.lastMessage = self.messages[-1]
-        cost = round(int(response["usage"]["total_tokens"])*(0.002/1000),7)
-        return self.lastMessage.content,cost
 
 chats = dict[int,chat]()
 
@@ -51,19 +20,34 @@ def exportChats(chatArray):
 def loadChats(jsonChats):
     return jsonpickle.decode(jsonChats)
 
-def accessUHistory(channelID : str, userID : str)->list[str]:
-    return history.AccessUserHistory(channelID, userID)
+def accessUHistory(userID : str)->list[str]:
+    return history.AccessUserHistory(userID)
 
-def accessCHistory(channelID : str)->dict[str , list[str]]:
-    return history.AccessChannelHistory(channelID)
+def addHistory(userID : str, message : str):
+    history.AddUserHistory(userID, message)
 
-def addHistory(channelID : str, userID : str, message : str):
-    history.AddUserHistory(channelID, userID, message)
+def lastCommand(userID : str)->str:
+    return history.GetLastCommand(userID)
+
+def currentCommand(userID : str)->str:
+    return history.GetCurrentCommand(userID)
+
+def goBack(userID : str)->str:
+    history.GoBackward(userID)
+
+def goForward(userID : str)->str:
+    history.GoForward(userID)
+
+def clearHistory(userID : str)->str:
+    history.Clear(userID)
+
+historyExclude = ["go-back-history","go-forward-history","last-command","current-command","clear-history","show-complete-history"]
 
 @client.event
 async def on_interaction(interaction : discord.Interaction):
     if interaction.type == discord.InteractionType.application_command:
-        addHistory(interaction.channel.id, interaction.user.id, interaction.data["name"])
+        if interaction.data["name"] not in historyExclude:
+            addHistory(interaction.user.id, interaction.data["name"])
 
 
 @client.event
@@ -71,24 +55,42 @@ async def on_ready():
     await tree.sync()
     print("Ready!")
 
-@tree.command(name="access-user-history",description="Accesses the user command history")
+@tree.command(name="last-command",description="Shows the last command used by the user")
+async def lastUCommand(interaction : discord.Interaction):
+    userID = interaction.user.id
+    await interaction.response.send_message(lastCommand(userID),ephemeral=True)
+
+@tree.command(name="current-command",description="Shows the current command used by the user")
+async def currentUCommand(interaction : discord.Interaction):
+    userID = interaction.user.id
+    await interaction.response.send_message(currentCommand(userID),ephemeral=True)
+
+@tree.command(name="go-back-history",description="Goes back to the previous command used by the user")
+async def goBUCommand(interaction : discord.Interaction):
+    userID = interaction.user.id
+    goBack(userID)
+    await interaction.response.send_message(currentCommand(userID),ephemeral=True)
+
+@tree.command(name="go-forward-history",description="Goes forward to the next command used by the user")
+async def goFUCommand(interaction : discord.Interaction):
+    userID = interaction.user.id
+    goForward(userID)
+    await interaction.response.send_message(currentCommand(userID),ephemeral=True)
+
+@tree.command(name="clear-history",description="Clears the user command history")
+async def clearUHistory(interaction : discord.Interaction):
+    userID = interaction.user.id
+    clearHistory(userID)
+    await interaction.response.send_message("cleared the user history",ephemeral=True)
+
+@tree.command(name="show-complete-history",description="Accesses the user command history")
 async def accessUserHistory(interaction : discord.Interaction):
     channelID = interaction.channel.id
     userID = interaction.user.id
-    history = accessUHistory(channelID, userID)
+    history = accessUHistory(userID)
     #adds \n to the end of each element in the list
     history = [x + "\n" for x in history]
     await interaction.response.send_message("here is the user history : \n" + "".join(history),ephemeral=True)
-
-@tree.command(name="access-channel-history",description="Accesses the channel command history")
-async def accessChannelHistory(interaction : discord.Interaction):
-    channelID = interaction.channel.id
-    history = accessCHistory(channelID)
-    #Constructs the message to send
-    #separates users history with a \n\n
-    msg = [f"<@{user}> : \n" + "".join([x + "\n" for x in history[user]]) + "\n\n" for user in history]
-    await interaction.response.send_message("here is the channel history : \n" + "".join(msg),ephemeral=True)
-
 
 @tree.command(name="ping",description="Pong!")
 async def ping(interaction : discord.Interaction):
@@ -104,24 +106,24 @@ async def clear(interaction : discord.Interaction):
     await interaction.channel.purge(limit=1000000)
     await interaction.response.send_message("cleared the channel",ephemeral=True)
 
-@tree.command(name="ask-chat",description="Asks GPT-3 a question")
+@tree.command(name="converse",description="a channel based conversation system with chatGPT")
 async def askGPT(interaction : discord.Interaction, question : str):
     channelID = interaction.channel.id
     if channelID not in chats:
         chats[channelID] = chat()
     currentChat: chat = chats[channelID]
-    await interaction.response.send_message("waiting for GPT-3 response...")
+    await interaction.response.send_message("waiting for response...")
     response,cost = currentChat.askGpt(question)
     msg = await interaction.original_response()
-    await msg.edit(content="you said : " + question + "\nGPT-3 said : " + response+"\n\n"+"it costed "+str(cost)+" $")
+    await msg.edit(content=f"you ask : {question}\nHere is the answer : {response}\n\nIt costed {cost:.6f} $")
 
-@tree.command(name="ask",description="Asks a question to the bot")
+@tree.command(name="ask",description="Asks a question to the bot ans GPT-3 will answer")
 async def ask(interaction : discord.Interaction, question : str):
     await interaction.response.send_message("waiting for response...")
     tempchat = chat()
     response,cost = tempchat.askGpt(question)
     msg = await interaction.original_response()
-    await msg.edit(content="you ask : " + question + "\n\n" + response+"\n\n"+"it costed "+str(cost)+" $")
+    await msg.edit(content=f"you ask : {question}\nHere is the answer : {response}\n\nIt costed {cost:.6f} $")
 
 
 @tree.command(name="rickroll",description="Rickrolls a user")
@@ -144,9 +146,9 @@ async def greet(interaction : discord.Interaction, user : discord.Member):
 def main():
     load_dotenv()
     token = os.getenv("TOKEN")
-    chatGPTSecret = os.getenv("CHATGPT_SECRET")
-    openai.organization = "org-caQ8goqyO6vSXZQyq8vc4tIL"
-    openai.api_key = chatGPTSecret
+    OpenAISecret = os.getenv("OPENAI_SECRET")
+    OpenAIOrganization = os.getenv("OPENAI_ORGANIZATION")
+    registerApi(OpenAISecret,OpenAIOrganization)
     client.run(token)
 
 if __name__ == "__main__":

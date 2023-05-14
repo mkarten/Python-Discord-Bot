@@ -1,85 +1,63 @@
 class Node:
-    def __init__(self, data, next=None):
+    def __init__(self, data):
         self.data = data
-        self.next = next
-
+        self.next = None
+        self.prev = None
 
 
 class LinkedList:
-    def __init__(self):
-        self.head = None
-        self.size = 0
+    def __init__(self,head=None,current=None,last_element=None):
+        self.head = head
+        self.current = current
+        self.last_element = last_element
 
-    def insert(self, data):
+    def add_node(self, data):
+        new_node = Node(data)
         if self.head is None:
-            self.head = Node(data)
+            self.head = new_node
+            self.current = new_node
         else:
-            current = self.head
-            while current.next is not None:
-                current = current.next
-            current.next = Node(data)
+            new_node.prev = self.current
+            self.current.next = new_node
+            self.current = new_node
+        self.last_element = new_node
 
-    def remove(self, data):
-        current = self.head
-        if current.data == data:
-            self.head = current.next
-            return
-        while current.next is not None:
-            if current.next.data == data:
-                current.next = current.next.next
-                return
-            current = current.next
+    def move_forward(self):
+        if self.current.next is not None:
+            self.current = self.current.next
 
-    def printList(self):
-        current = self.head
-        while current is not None:
-            print(current.data)
-            current = current.next
+    def move_backward(self):
+        if self.current.prev is not None:
+            self.current = self.current.prev
 
-    def delete(self, data):
-        current = self.head
-        if current.data == data:
-            self.head = current.next
-            return
-        while current.next is not None:
-            if current.next.data == data:
-                current.next = current.next.next
-                return
-            current = current.next
-    
-    def search(self, data):
-        current = self.head
-        while current is not None:
-            if current.data == data:
-                return True
-            current = current.next
-        return False
-    
-    def getSize(self):
-        return self.size
-    
-    def isEmpty(self):
-        return self.head is None
+    def convert_to_list(self):
+        node = self.head
+        list = []
+        while node:
+            list.append(node.data)
+            node = node.next
+        return list
+
+    def convert_from_list(self, list):
+        for i in list:
+            self.add_node(i)
     
     def clear(self):
         self.head = None
+        self.current = None
+        self.last_element = None
 
-    def push(self, data):
-        self.insert(data)
-    
-    def pop(self, data):
-        self.remove(data)
+    def __iter__(self):
+        node = self.head
+        if node is None:
+            print("No history")
+            yield []
+            return
+        while node:
+            yield node.data
+            node = node.next
 
-
-class sortedLinkedList:
-    def __init__(self):
-        self.head = None
-    
-    def add_data(self, data):
+    def __getstate__(self):
         if self.head is None:
-            self.head = Node(data)
-        else:
-            current = self.head
-            while current.next is not None:
-                current = current.next
-            current.next = Node(data)
+            return ["N33d2C0nvert"]
+        return self.convert_to_list()
