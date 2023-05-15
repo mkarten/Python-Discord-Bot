@@ -146,7 +146,7 @@ async def currentUCommand(interaction : discord.Interaction):
     userID = interaction.user.id
     await interaction.response.send_message(currentCommand(userID),ephemeral=True)
 
-@tree.command(name="go-back-history",description="Goes back to the previous command used by the user")
+@tree.command(name="go-backward-history",description="Goes back to the previous command used by the user")
 async def goBUCommand(interaction : discord.Interaction):
     userID = interaction.user.id
     goBack(userID)
@@ -217,9 +217,6 @@ async def rickroll(interaction : discord.Interaction, user : discord.Member):
 @tree.command(name="troll",description="Trolls a user")
 async def troll(interaction : discord.Interaction, user : discord.Member):
     await interaction.response.send_message(f"J'tai trollé <@{user.id}>!")
-
-
-
 
 @tree.context_menu(name="greet")
 async def greet(interaction : discord.Interaction, user : discord.Member):
