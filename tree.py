@@ -26,15 +26,24 @@ class Tree:
     def DeleteQuestion(self, option : str):
         del self.currentNode.options[option]
 
+    def Reset(self):
+        self.currentNode = self.root
+
     def GetQuestion(self) -> str:
         return self.currentNode.question
+    
+    def ListOptions(self) -> list[str]:
+        return list(self.currentNode.options.keys())
 
     def GoBack(self):
-        self.currentNode = self.currentNode.parent
+        if self.currentNode.parent is not None:
+            self.currentNode = self.currentNode.parent
     
     def ChooseOption(self, option : str):
         if option in self.currentNode.options:
             self.currentNode = self.currentNode.options[option]
+            return True
+        return False
 
     def __str__(self) -> str:
         return self._build_tree_string(self.root, "", "")[:-1]

@@ -1,9 +1,11 @@
 import os
 from dotenv import load_dotenv
 import discord
+from discord.ui import Button, View
 from discord import app_commands
 from history import History
 from Chat import chat, registerApi
+from tree import parse_json_to_tree, Tree
 import jsonpickle
 
 intents = discord.Intents.default()
@@ -11,6 +13,9 @@ intents.message_content = True
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 history = History("./history.json")
+jsonPath = "tree.json"
+conversationTrees = dict[str,Tree]()
+
 
 chats = dict[int,chat]()
 
@@ -54,6 +59,82 @@ async def on_interaction(interaction : discord.Interaction):
 async def on_ready():
     await tree.sync()
     print("Ready!")
+
+def yeildTree(userID : int):
+    if userID not in conversationTrees:
+        with open(jsonPath, "r") as f:
+            conversationTrees[userID] = parse_json_to_tree(f.read())
+    return conversationTrees[userID]
+
+async def resetConversation(interaction : discord.Interaction):
+    userID = interaction.user.id
+    conversationTree = yeildTree(userID)
+    conversationTree.Reset()
+    tempView = View()
+    for option in conversationTree.ListOptions():
+        # create a button that is clickable only by the user who started the command and advances the conversation
+        tempButton = Button(label=option,style=discord.ButtonStyle.primary,custom_id=option,disabled=False)
+        tempButton.callback = callback
+        tempView.add_item(tempButton)
+    restart = Button(label="Restart",style=discord.ButtonStyle.primary,custom_id="restart",disabled=False)
+    restart.callback = resetConversation
+    exit = Button(label="Exit",style=discord.ButtonStyle.primary,custom_id="exit",disabled=False)
+    exit.callback = exitConversation
+    tempView.add_item(restart)
+    tempView.add_item(exit)
+    # end the interaction
+    await interaction.response.defer()
+    await interaction.message.edit(content=conversationTree.GetQuestion(),view=tempView)
+
+async def exitConversation(interaction : discord.Interaction):
+    userID = interaction.user.id
+    conversationTree = yeildTree(userID)
+    conversationTree.Reset()
+    tempView = View()
+    await interaction.response.defer()
+    await interaction.message.delete()
+
+
+async def callback(interaction : discord.Interaction):
+    userID = interaction.user.id
+    conversationTree = yeildTree(userID)
+    tempView = View()
+    if conversationTree.ChooseOption(interaction.data["custom_id"]):
+        for option in conversationTree.ListOptions():
+            # create a button that is clickable only by the user who started the command and advances the conversation
+            tempButton = Button(label=option,style=discord.ButtonStyle.primary,custom_id=option,disabled=False)
+            tempButton.callback = callback
+            tempView.add_item(tempButton)
+    restart = Button(label="Restart",style=discord.ButtonStyle.primary,custom_id="restart",disabled=False)
+    restart.callback = resetConversation
+    exit = Button(label="Exit",style=discord.ButtonStyle.primary,custom_id="exit",disabled=False)
+    exit.callback = exitConversation
+    tempView.add_item(restart)
+    tempView.add_item(exit)
+    await interaction.response.defer()
+    await interaction.message.edit(content=conversationTree.GetQuestion(),view=tempView)
+
+
+@tree.command(name="speak-about",description="Starts the conversation")
+async def startConversation(interaction : discord.Interaction):
+    userID = interaction.user.id
+    conversationTree = yeildTree(userID)
+    tempView = View()
+    for option in conversationTree.ListOptions():
+        # create a button that is clickable only by the user who started the command and advances the conversation
+        tempButton = Button(label=option,style=discord.ButtonStyle.primary,custom_id=option,disabled=False)
+        tempButton.callback = callback
+        tempView.add_item(tempButton)
+    restart = Button(label="Restart",style=discord.ButtonStyle.primary,custom_id="restart",disabled=False)
+    restart.callback = resetConversation
+    exit = Button(label="Exit",style=discord.ButtonStyle.primary,custom_id="exit",disabled=False)
+    exit.callback = exitConversation
+    tempView.add_item(restart)
+    tempView.add_item(exit)
+    await interaction.response.defer()
+    await interaction.followup.send(conversationTree.GetQuestion(),view=tempView)
+
+
 
 @tree.command(name="last-command",description="Shows the last command used by the user")
 async def lastUCommand(interaction : discord.Interaction):
@@ -103,8 +184,9 @@ async def echo(interaction : discord.Interaction, message : str):
     
 @tree.command(name="clear",description="Clears the channel")
 async def clear(interaction : discord.Interaction):
-    await interaction.channel.purge(limit=1000000)
-    await interaction.response.send_message("cleared the channel",ephemeral=True)
+    await interaction.response.defer(ephemeral=True)
+    await interaction.channel.purge(limit=10000)
+    await interaction.followup.send("cleared the channel",ephemeral=True)
 
 @tree.command(name="converse",description="a channel based conversation system with chatGPT")
 async def askGPT(interaction : discord.Interaction, question : str):
